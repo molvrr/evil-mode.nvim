@@ -1,0 +1,10 @@
+{
+  setup: (_opts) ->
+    import 'evil-mode.keymaps'
+    import 'evil-mode.options'
+
+    vim.api.nvim_create_autocmd("BufEnter", {
+      callback: (_e) -> vim.api.nvim_feedkeys("i", "n", {}) if vim.opt.modifiable,
+      pattern: '*.*'
+    })
+}

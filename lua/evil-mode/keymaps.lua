@@ -1,68 +1,78 @@
 local builtin = require('telescope.builtin')
-local mateus
-mateus = {
-	start = 1,
-	["end"] = 2,
-	sort_pos = function(a, b)
-		if a[1] < b[1] then
-			return {
-				a,
-				b
-			}
-		end
-		if a[1] > b[1] then
-			return {
-				b,
-				a
-			}
-		end
-		if a[2] < b[2] then
-			return {
-				a,
-				b
-			}
-		end
+local between_keys
+between_keys = function(terms_before, f, terms_after)
+	return function()
+		local keys_before = vim.api.nvim_replace_termcodes(terms_before, true, true, true)
+		local keys_after = vim.api.nvim_replace_termcodes(terms_after, true, true, true)
+		vim.api.nvim_feedkeys(keys_before, 'n', { })
+		f()
+		return vim.api.nvim_feedkeys(keys_after, 'n', { })
+	end
+end
+local eq_pos
+eq_pos = function(a, b)
+	return a[1] == b[1] and a[2] == b[2]
+end
+local sort_pos
+sort_pos = function(a, b)
+	if a[1] < b[1] then
+		return {
+			a,
+			b
+		}
+	end
+	if a[1] > b[1] then
 		return {
 			b,
 			a
 		}
-	end,
-	eq_pos = function(a, b)
-		return a[1] == b[1] and a[2] == b[2]
-	end,
-	select_edge = function(edge, terms_before, terms_after)
-		return function()
-			local keys_before = vim.api.nvim_replace_termcodes(terms_before, true, true, true)
-			local keys_after = vim.api.nvim_replace_termcodes(terms_after, true, true, true)
-			vim.api.nvim_feedkeys(keys_before, 'n', { })
-			local pos_a = vim.fn.getcharpos('v')
-			local pos_b = vim.fn.getcharpos('.')
-			pos_a = {
-				pos_a[2],
-				pos_a[3]
-			}
-			pos_b = {
-				pos_b[2],
-				pos_b[3]
-			}
-			local pos_start, pos_end = unpack(mateus.sort_pos(pos_a, pos_b))
-			local cursor = vim.api.nvim_win_get_cursor(0)
-			local on_start = mateus.eq_pos(pos_start, {
-				cursor[1],
-				cursor[2] + 1
-			})
-			local on_end = mateus.eq_pos(pos_end, {
-				cursor[1],
-				cursor[2] + 1
-			})
-			local already_there = (edge == mateus.starting and on_start) or (edge == mateus.ending and on_end)
-			if not already_there then
-				vim.fn.feedkeys('o', 'n')
-			end
-			return vim.api.nvim_feedkeys(keys_after, 'n', { })
+	end
+	if a[2] < b[2] then
+		return {
+			a,
+			b
+		}
+	end
+	return {
+		b,
+		a
+	}
+end
+local edges = {
+	start = 1,
+	["end"] = 2
+}
+local selection_edge_mover
+selection_edge_mover = function(edge)
+	return function()
+		local pos_a = vim.fn.getcharpos('v')
+		local pos_b = vim.fn.getcharpos('.')
+		pos_a = {
+			pos_a[2],
+			pos_a[3]
+		}
+		pos_b = {
+			pos_b[2],
+			pos_b[3]
+		}
+		local pos_start, pos_end = unpack(sort_pos(pos_a, pos_b))
+		local cursor = vim.api.nvim_win_get_cursor(0)
+		local on_start = eq_pos(pos_start, {
+			cursor[1],
+			cursor[2] + 1
+		})
+		local on_end = eq_pos(pos_end, {
+			cursor[1],
+			cursor[2] + 1
+		})
+		local already_there = (edge == edges.start and on_start) or (edge == edges.ending and on_end)
+		if not already_there then
+			return vim.fn.feedkeys('o', 'n')
 		end
 	end
-}
+end
+local selection_start = selection_edge_mover(edges.start)
+local selection_end = selection_edge_mover(edges["end"])
 vim.keymap.set('n', '<S-Up>', 'v<Up>')
 vim.keymap.set('n', '<S-Down>', 'v<Down>')
 vim.keymap.set('n', '<S-Left>', 'v<Left>')
@@ -75,10 +85,10 @@ vim.keymap.set('v', '<S-Up>', '<Up>')
 vim.keymap.set('v', '<S-Down>', '<Down>')
 vim.keymap.set('v', '<S-Left>', '<Left>')
 vim.keymap.set('v', '<S-Right>', '<Right>')
-vim.keymap.set('v', '<Right>', mateus.select_edge(mateus.ending, "", "<Esc>i<Right>"))
-vim.keymap.set('v', '<Left>', mateus.select_edge(mateus.starting, "", "<Esc>i"))
-vim.keymap.set('v', '<Down>', mateus.select_edge(mateus.ending, "", "<Esc>i<Right>"))
-vim.keymap.set('v', '<Up>', mateus.select_edge(mateus.starting, "", "<Esc>i"))
+vim.keymap.set('v', '<Right>', between_keys("", selection_end, "<Esc>i<Right>"))
+vim.keymap.set('v', '<Left>', between_keys("", selection_start, "<Esc>i"))
+vim.keymap.set('v', '<Down>', between_keys("", election_end, "<Esc>i<Right>"))
+vim.keymap.set('v', '<Up>', between_keys("", selection_start, "<Esc>i"))
 vim.keymap.set('i', '<S-Up>', '<Esc>v<Up>')
 vim.keymap.set('i', '<S-Down>', '<Esc>v<Down>')
 vim.keymap.set('i', '<S-Left>', '<Esc>v')
